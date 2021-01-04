@@ -1,16 +1,16 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
+import pynput
 
 class MyException(Exception): pass
 
 class WorkerSignals(QtCore.QObject):
-    result   = QtCore.pyqtSignal(object)
+    text     = QtCore.pyqtSignal(object)
     error    = QtCore.pyqtSignal()
     finished = QtCore.pyqtSignal()
 
 class Worker(QtCore.QRunnable):
-    def __init__(self, fn,*args , **kwargs):
+    def __init__(self,*args , **kwargs):
         super().__init__()
-        self.fn      = fn
         self.args    = args
         self.kwargs  = kwargs
         self.signals = WorkerSignals()
@@ -18,13 +18,22 @@ class Worker(QtCore.QRunnable):
     QtCore.pyqtSlot()
     def run(self):
         try:
-            result = self.fn(*self.args, **self.kwargs)  
-        except:
-            self.signals.error.emit()
-        else:
-            self.signals.result.emit(result)
-        finally:
-            self.signals.finished.emit()
+            import pynput.keyboard as keyboard
+
+        except ImportError:
+            sys.stderr.write('pynput module import failed')
+            sys.stderr.write('\ttry installing pynput')
+            
+        with keyboard.Listener(on_press=self.on_press) as listener:
+            try:
+                listener.join()
+            except MyException as e:
+                print('{0} was pressed'.format(e.args[0]))
+
+    def on_press(self, key):
+        self.signals.text.emit(key)
+        #if key == keyboard.Key.esc:
+        #    raise MyException(key)
         
 class Ui_Form(object):
     def setupUi(self, Form, stylesheet):
@@ -51,22 +60,38 @@ class Ui_Form(object):
         self.setupFn()
 
     def initializeRun(self, **kwargs):
-        self._StyleSheet = kwargs['stylesheet']
-        self._styleHead  = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n<html><head><meta name="qrichtext" content="1" /><style type="text/css">\np, li { white-space: pre-wrap; }\n</style></head><body style=" font-family:\'Cascadia Code PL\'; font-size:11pt; font-weight:400; font-style:normal;">\n'
-        'ReplaceMe</p></body></html>'
-        self._p          = '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">'
-        self.style       = (''.join(self._styleHead)).join(self._p)
-        self.identifiers = {'addch':'#fffff', 'common':'black'}
-
+        self._StyleSheet   = kwargs['stylesheet']
+        self._styleHead    = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n<html><head><meta name="qrichtext" content="1" /><style type="text/css">\np, li { white-space: pre-wrap; }\n</style></head><body style=" font-family:\'Cascadia Code PL\'; font-size:11pt; font-weight:400; font-style:normal;">\n'
+        self._styleBase    = '</p></body></html>'
+        self._p            = '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">'
+        self.style         = self._styleHead + self._p + 'ReplaceBySPAN' + self._styleBase
+        self.identifiers   = {'addch':'#fffff', 'common':'black'}
+        self.commandLinear = ''
+        self.span          = '<span>SPANTEXT</span>'
+        
     def integrateCn(self, command):
-        self.parser(command, parse='addText')
+        #self.parser(command, parse='addText')
+        if command == pynput.keyboard.Key.backspace:
+            self.commandLinear = self.commandLinear[:-1]
+        else:
+            self.commandLinear += str(command)[1:-1]
+        spanText           = self.span.replace('SPANTEXT', self.commandLinear)
+            
+        self.spanUpdate(spanText)
+
+    def spanUpdate(self, SpanText):
+        _translate         = QtCore.QCoreApplication.translate
+        returnText         = self.style.replace('ReplaceBySPAN', SpanText)
+
+        self.textEdit.setHtml(_translate("Form", returnText))
+        print(self.textEdit.toPlainText())
 
     def parser(self, command, parse=''):
         if parser == 'addText':
-            for i in self.getTextId(command):
+            #for i in self.getTextId(command):
                 
             self._history.append('<span id='+self.getTextId(i)+'>'+i+'</span>')
-            if (not self.style) and self.history:
+            #if (not self.style) and self.history:
 
     def getTextId(self, j):
         j = j.strip()
@@ -87,36 +112,25 @@ class Ui_Form(object):
     def retranslateUi(self, Form):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
-        self.style.replace('ReplaceMe', ''
-        self.textEdit.setHtml(_translate("Form", self.style.replace('ReplaceMe', '<span style=" color:#ffff00;">hey </span><span style=" color:#00aaff;">dfhfdh</span>')))
         self.textEdit.setStyleSheet('background:transparent')
 
     def setupFn(self):
         self.threadpool  = QtCore.QThreadPool()
+        self.attachtracing()
 
     def attachtracing(self):
-        worker = Worker(self._pynput)
-        worker.signals.result.connect(self.changeText)
+        worker = Worker()
         worker.signals.error.connect(self.errorInChangeText)
+        worker.signals.text.connect(self.textChanged)
         self.threadpool.start(worker)
 
-    def _pynput(self):
-        try:
-            import pynput
-        except ImportError:
-            sys.stderr.write('pynput module import failed')
-            sys.stderr.write('\ttry installing pynput')
-            Form.close()
-    
-        with keyboard.Listener(on_press=self.on_press) as listener:
-            try:
-                listener.join()
-            except MyException as e:
-                print('{0} was pressed'.format(e.args[0]))
+    def textChanged(self, key):
+        self.integrateCn(key)
+        #self.textEdit.setText(str(key)[1:-1])
 
-    def on_press(self, key):
-        if key == keyboard.Key.esc:
-            raise MyException(key)
+    def errorInChangeText(self):
+        print('error occured')
+        
     
 if __name__ == "__main__":
     import sys
