@@ -4,9 +4,9 @@ import pynput
 class MyException(Exception): pass
 
 class WorkerSignals(QtCore.QObject):
-    text     = QtCore.pyqtSignal(object)
-    error    = QtCore.pyqtSignal()
-    finished = QtCore.pyqtSignal()
+    changedText = QtCore.pyqtSignal(object)
+    error       = QtCore.pyqtSignal()
+    finished    = QtCore.pyqtSignal()
 
 class Worker(QtCore.QRunnable):
     def __init__(self,*args , **kwargs):
@@ -27,13 +27,9 @@ class Worker(QtCore.QRunnable):
         with keyboard.Listener(on_press=self.on_press) as listener:
             try:
                 listener.join()
-            except MyException as e:
-                print('{0} was pressed'.format(e.args[0]))
 
     def on_press(self, key):
-        self.signals.text.emit(key)
-        #if key == keyboard.Key.esc:
-        #    raise MyException(key)
+        self.signals.changedText.emit(key)
         
 class Ui_Form(object):
     def setupUi(self, Form, stylesheet):
@@ -121,7 +117,7 @@ class Ui_Form(object):
     def attachtracing(self):
         worker = Worker()
         worker.signals.error.connect(self.errorInChangeText)
-        worker.signals.text.connect(self.textChanged)
+        worker.signals.changedText.connect(self.textChanged)
         self.threadpool.start(worker)
 
     def textChanged(self, key):
