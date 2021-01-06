@@ -42,7 +42,7 @@ class Ui_Form(object):
         Form.setObjectName("Form")
         Form.resize(400, 300)
         self.horizontalLayout = QtWidgets.QHBoxLayout(Form)
-        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setContentsMargins(20, 20, 20, 20)
         self.horizontalLayout.setSpacing(0)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.textEdit = QtWidgets.QTextEdit(Form)
@@ -76,39 +76,58 @@ class Ui_Form(object):
             self.font_weight   = json['editor']['font-weight']
         except KeyError:
             self.font_weight   = '400'
-             
-
+            
+    def run(command):
+        from subprocess import Popen, PIPE
+        process = Popen(command, stdout=PIPE, shell=True)
+        while True:
+            line = process.stdout.readline().rstrip()
+            if not line:
+                break
+            yield line
+ 
     def initializeRun(self, **kwargs):
         json = self.parser(kwargs['stylesheet'], parse='json')
         self.declare(json)
     
     def declare(self, json):
+        import getpass, platform
         self.face          = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n<html><head><meta name="qrichtext" content="1" /><style type="text/css">\np, li { white-space: pre-wrap; }\n</style></head><body style=" '
         self.tried(json)
         self._styleHead    = self.face+"font-family:\'"+self.font+"\'; font-size:"+self.font_size+"; font-weight:"+self.font_weight+"; font-style:"+self.font_style+';">\n'
-        self._styleBase    = '</p></body></html>'
-        self._p            = '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">'
-        self.style         = self._styleHead + self._p + 'ReplaceBySPAN' + self._styleBase
+        self._styleBase    = '</body></html>'
+        self._p            = '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">SPANCOL</p>'
+        self.style         = self._styleHead + 'PARACOL' + self._styleBase
         self.identifiers   = {'addch':'#fffff', 'common':'black'}
         self.commandLinear = ''
-        self.history       = list() 
+        self.history       = list()
+        self.paras         = ''
         self.span          = '<span>SPANTEXT</span>'
+        self.prompt        = getpass.getuser()+'@'+platform.node()+':' \
+                                +'~'+ os.getcwd().split(getpass.getuser())[1]+'$ '
         
     def integrateCn(self, command):
         import getpass, os, platform
 
         if   command == pynput.keyboard.Key.enter:
-            self.history.append(self._p)
+            b = self.currentp.split('<span>')        
+
+            tempvar = ''
+            for i in range(len(b)-1):
+                tempvar += b[i]
+            tempvar = tempvar+'<span>'+b[-1].split('</span>')[-2][:-1]+'</span></p>'
+
+            self.paras += tempvar
+            self.commandLinear = ''
+
         elif command == pynput.keyboard.Key.backspace:
             self.commandLinear  = self.commandLinear[:-1]
         elif command == pynput.keyboard.Key.space:
-            self.commandLinear += ' ' 
+            self.commandLinear += ' '
         elif len(str(command)[1:-1]) == 1:
             self.commandLinear += str(command)[1:-1]
-            
-        spanHeaders             = getpass.getuser()+'@'+platform.node()+':' \
-                                +'~'+ os.getcwd().split(getpass.getuser())[1]+'$ '
-        spanText                = self.span.replace('SPANTEXT', spanHeaders+self.commandLinear+'_')
+
+        spanText                = self.span.replace('SPANTEXT', self.prompt+self.commandLinear+'_')
             
         self.spanUpdate(spanText)
 
@@ -118,7 +137,8 @@ class Ui_Form(object):
         
     def spanUpdate(self, SpanText):
         _translate         = QtCore.QCoreApplication.translate
-        returnText         = self.style.replace('ReplaceBySPAN', SpanText)
+        self.currentp      = self._p.replace('SPANCOL', SpanText)
+        returnText         = self.style.replace('PARACOL', self.paras+self.currentp)
 
         self.textEdit.setHtml(_translate("Form", returnText))
         
@@ -181,9 +201,14 @@ if __name__ == "__main__":
             bgcolor = a['editor']['bgcolor']
         except:
             bgcolor = 'rgb(0, 0, 0)'
-    Form.setStyleSheet('background-color:{0};color:white'.format(bgcolor))
+        try:
+            forecolor = a['editor']['text-color']
+        except:
+            forecolor = 'white'
+    Form.setStyleSheet('background-color:{0};color:{1}'.format(bgcolor, forecolor))
     ui = Ui_Form()
     ui.setupUi(Form, '')
     Form.show()
+    print(app.applicationState())
     sys.exit(app.exec_())
 
