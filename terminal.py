@@ -36,8 +36,8 @@ class Worker(QtCore.QRunnable):
         #    raise MyException(key)
         
 class Ui_Form(object):
-    def setupUi(self, Form, stylesheet):
-        self.initializeRun(stylesheet = stylesheet)
+    def setupUi(self, Form):
+        self.initializeRun()
          
         Form.setObjectName("Form")
         Form.resize(400, 300)
@@ -87,7 +87,7 @@ class Ui_Form(object):
             yield line
  
     def initializeRun(self, **kwargs):
-        json = self.parser(kwargs['stylesheet'], parse='json')
+        json = self.parser(parse='json')
         self.declare(json)
     
     def declare(self, json):
@@ -142,7 +142,7 @@ class Ui_Form(object):
 
         self.textEdit.setHtml(_translate("Form", returnText))
         
-    def parser(self, command, parse=''):
+    def parser(self, parse=''):
         if parse == 'json':
             import json, os, sys
             if os.path.exists(os.path.join(os.getcwd(), 'config')):                
@@ -194,8 +194,10 @@ if __name__ == "__main__":
     import sys, os, json
     app = QtWidgets.QApplication(sys.argv)
     Form = QtWidgets.QWidget()
+    a = ''
     if os.path.exists(os.path.join(os.getcwd(), 'config')):
         with open('config', 'r') as file:
+            existsJsonFile = True
             a = json.load(file)
         try:
             bgcolor = a['editor']['bgcolor']
@@ -207,7 +209,7 @@ if __name__ == "__main__":
             forecolor = 'white'
     Form.setStyleSheet('background-color:{0};color:{1}'.format(bgcolor, forecolor))
     ui = Ui_Form()
-    ui.setupUi(Form, '')
+    ui.setupUi(Form)
     Form.show()
     print(app.applicationState())
     sys.exit(app.exec_())
