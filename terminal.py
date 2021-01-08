@@ -8,32 +8,49 @@ class WorkerSignals(QtCore.QObject):
     error    = QtCore.pyqtSignal()
     finished = QtCore.pyqtSignal()
 
-class Worker(QtCore.QRunnable):
-    def __init__(self,*args , **kwargs):
+class commandRunner(QtCore.QObject):
+    def __init__(self, command, *args, **kwargs):
         super().__init__()
+        self.args = args
+        self.kwargs = kwargs
+        self.command = command
+        self.signals = WorkerSignals()
+
+    QtCore.pyqtSlot()
+    def run(self):
+        try:
+            from subprocess import Popen, PIPE
+            process = Popen(self.command, stdout=PIPE, shell=True)
+            while True:
+                line = process.stdout.readline().rstrip()
+                if not line:
+                    self.signals.finished.emit()
+                    break
+                self.signals.text.emit(line)
+
+        except Exception as e:
+            print(e)
+            self.signals.error.emit()
+
+
+class Worker(QtCore.QObject):
+    def __init__(self, fn,*args , **kwargs):
+        super().__init__()
+        self.fn      = fn
         self.args    = args
         self.kwargs  = kwargs
         self.signals = WorkerSignals()
         
-    QtCore.pyqtSlot()
+    #QtCore.pyqtSlot()
     def run(self):
         try:
-            import pynput.keyboard as keyboard
-
-        except ImportError:
-            sys.stderr.write('pynput module import failed')
-            sys.stderr.write('\ttry installing pynput')
-            
-        with keyboard.Listener(on_press=self.on_press) as listener:
-            try:
-                listener.join()
-            except MyException as e:
-                print('{0} was pressed'.format(e.args[0]))
+            self.fn(*self.args, **self.kwargs)
+        except Exception as e:
+            print(e)
+            self.signals.error.emit()
 
     def on_press(self, key):
         self.signals.text.emit(key)
-        #if key == keyboard.Key.esc:
-        #    raise MyException(key)
         
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -77,7 +94,7 @@ class Ui_Form(object):
         except KeyError:
             self.font_weight   = '400'
             
-    def run(command):
+    def run(self, command):
         from subprocess import Popen, PIPE
         process = Popen(command, stdout=PIPE, shell=True)
         while True:
@@ -92,6 +109,7 @@ class Ui_Form(object):
     
     def declare(self, json):
         import getpass, platform
+        self.threadpool    = QtCore.QThreadPool()
         self.face          = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n<html><head><meta name="qrichtext" content="1" /><style type="text/css">\np, li { white-space: pre-wrap; }\n</style></head><body style=" '
         self.tried(json)
         self._styleHead    = self.face+"font-family:\'"+self.font+"\'; font-size:"+self.font_size+"; font-weight:"+self.font_weight+"; font-style:"+self.font_style+';">\n'
@@ -103,21 +121,35 @@ class Ui_Form(object):
         self.history       = list()
         self.paras         = ''
         self.span          = '<span>SPANTEXT</span>'
+        self.Location      = '~'+ os.getcwd().split(getpass.getuser())[1]
         self.prompt        = getpass.getuser()+'@'+platform.node()+':' \
-                                +'~'+ os.getcwd().split(getpass.getuser())[1]+'$ '
+                                +self.Location+'$ '
+        self.grabEditor    = False
         
     def integrateCn(self, command):
         import getpass, os, platform
 
-        if   command == pynput.keyboard.Key.enter:
-            b = self.currentp.split('<span>')        
+        if command == pynput.keyboard.Key.enter:
+            self.grabEditor = True
+            b = self.currentp.split('<span>')
 
             tempvar = ''
             for i in range(len(b)-1):
                 tempvar += b[i]
             tempvar = tempvar+'<span>'+b[-1].split('</span>')[-2][:-1]+'</span></p>'
-
             self.paras += tempvar
+            
+            self.commandrunnerThread = QtCore.QThread()
+            self. commandrunner = commandRunner(b[-1].split('</span>')[-2][:-1].split(self.Location+'$ ')[1])
+            self.commandrunner.signals.error.connect(self.commandRunnerError)
+            self.commandrunner.signals.text.connect(self.commandRunnerText)
+            self.commandrunner.signals.finished.connect(self.commandRunnerFinished)
+            self.commandrunner.moveToThread(self.commandrunnerThread)
+            self.commandrunnerThread.started.connect(self.commandrunner.run)
+            self.commandrunner.signals.finished.connect(self.commandrunner.deleteLater)
+            self.commandrunner.signals.finished.connect(self.commandrunnerThread.quit)
+            self.commandrunnerThread.finished.connect(self.commandrunnerThread.deleteLater)
+            self.commandrunnerThread.start()
             self.commandLinear = ''
 
         elif command == pynput.keyboard.Key.backspace:
@@ -127,13 +159,26 @@ class Ui_Form(object):
         elif len(str(command)[1:-1]) == 1:
             self.commandLinear += str(command)[1:-1]
 
-        spanText                = self.span.replace('SPANTEXT', self.prompt+self.commandLinear+'_')
-            
-        self.spanUpdate(spanText)
+        if not self.grabEditor:
+            spanText                = self.span.replace('SPANTEXT', self.prompt+self.commandLinear+'_')                
+            self.spanUpdate(spanText)
 
     def getinfo(self):
         import platform
         print(platform.uname())
+
+    def commandRunnerFinished(self):
+        self.grabEditor = False
+        print('finished')
+        spanText                = self.span.replace('SPANTEXT', self.prompt+self.commandLinear+'_')                
+        self.spanUpdate(spanText)
+
+    def commandRunnerText(self, text):
+        strText = str(text)[2:-1]
+        print(strText)
+
+    def commandRunnerError(self):
+        print('command error failed')
         
     def spanUpdate(self, SpanText):
         _translate         = QtCore.QCoreApplication.translate
@@ -174,21 +219,42 @@ class Ui_Form(object):
         self.textEdit.setStyleSheet('background:transparent')
 
     def setupFn(self):
-        self.threadpool  = QtCore.QThreadPool()
         self.attachtracing()
 
     def attachtracing(self):
-        worker = Worker()
-        worker.signals.error.connect(self.errorInChangeText)
-        worker.signals.text.connect(self.textChanged)
-        self.threadpool.start(worker)
+        self.workingThread = QtCore.QThread()
+        self.worker = Worker(self._pynput_)
+        self.worker.moveToThread(self.workingThread)
+        self.worker.signals.error.connect(self.errorInChangeText)
+        self.worker.signals.text.connect(self.textChanged)
+        self.workingThread.started.connect(self.worker.run)
+        self.workingThread.finished.connect(self.workingThread.deleteLater)
+        self.workingThread.start()
 
     def textChanged(self, key):
+        if self.grabEditor:
+            return
         self.integrateCn(key)
 
     def errorInChangeText(self):
         print('error occured')
-        
+
+    def _pynput_(self):
+        try:
+            import pynput.keyboard as keyboard
+
+        except ImportError:
+            sys.stderr.write('pynput module import failed')
+            sys.stderr.write('\ttry installing pynput')
+    
+        with keyboard.Listener(on_press=self.worker.on_press) as listener:
+            if self.grabEditor:
+                return
+            try:
+                listener.join()
+            except MyException as e:
+                print('{0} was pressed'.format(e.args[0]))
+
     
 if __name__ == "__main__":
     import sys, os, json
@@ -211,6 +277,5 @@ if __name__ == "__main__":
     ui = Ui_Form()
     ui.setupUi(Form)
     Form.show()
-    print(app.applicationState())
     sys.exit(app.exec_())
 
