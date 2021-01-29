@@ -1,19 +1,43 @@
-from PyQt5 import QtCore, QtGui, QtWidgets
-import pynput
+from PyQt5 import QtWidgets, QtCore, QtGui
+import syntax, pynput, sys, os, subprocess
 
-class MyException(Exception): pass
+keymap = {}
+for key, value in vars(QtCore.Qt).items():
+    if isinstance(value, QtCore.Qt.Key):
+        keymap[value] = key.partition('_')[2]
+
+modmap = {
+    QtCore.Qt.ControlModifier: keymap[QtCore.Qt.Key_Control],
+    QtCore.Qt.AltModifier: keymap[QtCore.Qt.Key_Alt],
+    QtCore.Qt.ShiftModifier: keymap[QtCore.Qt.Key_Shift],
+    QtCore.Qt.MetaModifier: keymap[QtCore.Qt.Key_Meta],
+    QtCore.Qt.GroupSwitchModifier: keymap[QtCore.Qt.Key_AltGr],
+    QtCore.Qt.KeypadModifier: keymap[QtCore.Qt.Key_NumLock],
+    }
+
+def keyevent_to_string(event):
+    sequence = []
+    for modifier, text in modmap.items():
+        if event.modifiers() & modifier:
+            sequence.append(text)
+    key = keymap.get(event.key(), event.text())
+    if key not in sequence:
+        sequence.append(key)
+    return '+'.join(sequence)
 
 class WorkerSignals(QtCore.QObject):
     text     = QtCore.pyqtSignal(object)
     error    = QtCore.pyqtSignal()
     finished = QtCore.pyqtSignal()
+    _break   = QtCore.pyqtSignal()
 
 class commandRunner(QtCore.QObject):
     def __init__(self, command, *args, **kwargs):
         super().__init__()
-        self.args = args
-        self.kwargs = kwargs
+        self.args    = args
+        self.kwargs  = kwargs
         self.command = command
+        self.breakthebond = False
         self.signals = WorkerSignals()
 
     QtCore.pyqtSlot()
@@ -22,6 +46,9 @@ class commandRunner(QtCore.QObject):
             from subprocess import Popen, PIPE
             process = Popen(self.command, stdout=PIPE, shell=True)
             while True:
+                if self.breakthebond :
+                    self.signals.finished.emit()
+                    break
                 line = process.stdout.readline().rstrip()
                 if not line:
                     self.signals.finished.emit()
@@ -32,250 +59,315 @@ class commandRunner(QtCore.QObject):
             print(e)
             self.signals.error.emit()
 
+    def _break_(self):
+        self.breakthebond = True
 
-class Worker(QtCore.QObject):
-    def __init__(self, fn,*args , **kwargs):
-        super().__init__()
-        self.fn      = fn
-        self.args    = args
-        self.kwargs  = kwargs
-        self.signals = WorkerSignals()
-        
-    #QtCore.pyqtSlot()
-    def run(self):
+class plain(QtWidgets.QTextEdit):
+    def __init__(self, parent, fore):
+        super().__init__(parent)
+        self.fore           = fore
+        self.forechar       = QtGui.QTextCharFormat()
+        self.forechar.setForeground(QtGui.QColor(self.fore))
+        self.alphanum       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        self.modifiers      = 'Shift Control Alt +'
+        self.prev           = 0
+        self.grabbedEditor  = False
+        self.waitforobject  = False
+        self.prompt         = os.getcwd() + '\n❯ '
+        self.cleared        = False
+        self.Signals        = WorkerSignals()
+        self._waitforobject = self.Signals.finished
+        self._waitforobject.connect(self.restorehtml)
+
+    def keyPressEvent(self, e):
+        pass
+
+    def keyReleaseEvent(self, e):
         try:
-            self.fn(*self.args, **self.kwargs)
-        except Exception as e:
-            print(e)
-            self.signals.error.emit()
+            _e = keyevent_to_string(e)
+            if self.waitforobject:
+                if _e == 'Backspace':
+                    self._waitforobject.emit()
 
-    def on_press(self, key):
-        self.signals.text.emit(key)
-        
-class Ui_Form(object):
-    def setupUi(self, Form):
-        self.initializeRun()
-         
-        Form.setObjectName("Form")
-        Form.resize(400, 300)
-        self.horizontalLayout = QtWidgets.QHBoxLayout(Form)
-        self.horizontalLayout.setContentsMargins(20, 20, 20, 20)
-        self.horizontalLayout.setSpacing(0)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.textEdit = QtWidgets.QTextEdit(Form)
-        self.textEdit.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.textEdit.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.textEdit.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
-        self.textEdit.setReadOnly(True)
-        self.textEdit.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        self.textEdit.setObjectName("textEdit")
-        self.horizontalLayout.addWidget(self.textEdit)
+            if self.grabbedEditor and (_e == 'Control+C' or _e == 'Control+D'): self.commandRunner.signals._break.emit()
+            if self.grabbedEditor : return
+            self.cur   = self.textCursor()
+            self.start = 0
+            for i in self.toPlainText().split('\n')[:-1]:
+                self.start += len(i) + 1
 
-        self.retranslateUi(Form)
-        QtCore.QMetaObject.connectSlotsByName(Form)
-        
-        self.setupFn()
+            if self.prev > self.start:
+                if self.cleared:
+                    self.cleared = False
+                    self.prev = self.start
+                else:
+                    self.start = self.prev
+            if self.prev < self.start:
+                self.prev = self.start
+            self.start += 2
+            if self.cur.position() < self.start: return
+                
+            if _e in self.alphanum:
+                self.insertPlainText(_e.lower())
 
-    def tried(self, json):
-        try:
-            self.font          = json['editor']['font']
-        except KeyError:
-            self.font          = 'Cascadia Code PL'
-        try:
-            self.font_size     = json['editor']['font-size']
-        except KeyError:
-            self.font_size     = '11pt'
-        try:
-            self.font_style    = json['editor']['font-style']
-        except KeyError:
-            self.font_style    = 'normal'
-        try:
-            self.font_weight   = json['editor']['font-weight']
-        except KeyError:
-            self.font_weight   = '400'
-            
-    def run(self, command):
-        from subprocess import Popen, PIPE
-        process = Popen(command, stdout=PIPE, shell=True)
-        while True:
-            line = process.stdout.readline().rstrip()
-            if not line:
-                break
-            yield line
- 
-    def initializeRun(self, **kwargs):
-        json = self.parser(parse='json')
-        self.declare(json)
-    
-    def declare(self, json):
-        import getpass, platform
-        self.threadpool    = QtCore.QThreadPool()
-        self.face          = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" "http://www.w3.org/TR/REC-html40/strict.dtd">\n<html><head><meta name="qrichtext" content="1" /><style type="text/css">\np, li { white-space: pre-wrap; }\n</style></head><body style=" '
-        self.tried(json)
-        self._styleHead    = self.face+"font-family:\'"+self.font+"\'; font-size:"+self.font_size+"; font-weight:"+self.font_weight+"; font-style:"+self.font_style+';">\n'
-        self._styleBase    = '</body></html>'
-        self._p            = '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;">SPANCOL</p>'
-        self.style         = self._styleHead + 'PARACOL' + self._styleBase
-        self.identifiers   = {'addch':'#fffff', 'common':'black'}
-        self.commandLinear = ''
-        self.history       = list()
-        self.paras         = ''
-        self.span          = '<span>SPANTEXT</span>'
-        self.Location      = '~'+ os.getcwd().split(getpass.getuser())[1]
-        self.prompt        = getpass.getuser()+'@'+platform.node()+':' \
-                                +self.Location+'$ '
-        self.grabEditor    = False
-        
-    def integrateCn(self, command):
-        import getpass, os, platform
+            if (not '+' in _e) and (_e in self.modifiers): return
 
-        if command == pynput.keyboard.Key.enter:
-            self.grabEditor = True
-            b = self.currentp.split('<span>')
 
-            tempvar = ''
-            for i in range(len(b)-1):
-                tempvar += b[i]
-            tempvar = tempvar+'<span>'+b[-1].split('</span>')[-2][:-1]+'</span></p>'
-            self.paras += tempvar
-            
-            self.commandrunnerThread = QtCore.QThread()
-            self. commandrunner = commandRunner(b[-1].split('</span>')[-2][:-1].split(self.Location+'$ ')[1])
-            self.commandrunner.signals.error.connect(self.commandRunnerError)
-            self.commandrunner.signals.text.connect(self.commandRunnerText)
-            self.commandrunner.signals.finished.connect(self.commandRunnerFinished)
-            self.commandrunner.moveToThread(self.commandrunnerThread)
-            self.commandrunnerThread.started.connect(self.commandrunner.run)
-            self.commandrunner.signals.finished.connect(self.commandrunner.deleteLater)
-            self.commandrunner.signals.finished.connect(self.commandrunnerThread.quit)
-            self.commandrunnerThread.finished.connect(self.commandrunnerThread.deleteLater)
-            self.commandrunnerThread.start()
-            self.commandLinear = ''
+            if (_e == 'Minus'):
+                    self.insertPlainText('-')
 
-        elif command == pynput.keyboard.Key.backspace:
-            self.commandLinear  = self.commandLinear[:-1]
-        elif command == pynput.keyboard.Key.space:
-            self.commandLinear += ' '
-        elif len(str(command)[1:-1]) == 1:
-            self.commandLinear += str(command)[1:-1]
+            if (_e == 'Equal'):
+                    self.insertPlainText('=')
 
-        if not self.grabEditor:
-            spanText                = self.span.replace('SPANTEXT', self.prompt+self.commandLinear+'_')                
-            self.spanUpdate(spanText)
+            if (_e == 'Backlash'):
+                    self.insertPlainText('\\')
 
-    def getinfo(self):
-        import platform
-        print(platform.uname())
+            if (_e == 'BracketLeft'):
+                    self.insertPlainText(']')
 
-    def commandRunnerFinished(self):
-        self.grabEditor = False
-        print('finished')
-        spanText                = self.span.replace('SPANTEXT', self.prompt+self.commandLinear+'_')                
-        self.spanUpdate(spanText)
+            if (_e == 'BracketRight'):
+                    self.insertPlainText('[')
 
-    def commandRunnerText(self, text):
-        strText = str(text)[2:-1]
-        print(strText)
+            if (_e == 'Apostrophe'):
+                    self.insertPlainText('\'')
 
-    def commandRunnerError(self):
-        print('command error failed')
-        
-    def spanUpdate(self, SpanText):
-        _translate         = QtCore.QCoreApplication.translate
-        self.currentp      = self._p.replace('SPANCOL', SpanText)
-        returnText         = self.style.replace('PARACOL', self.paras+self.currentp)
+            if (_e == 'Semicolon'):
+                    self.insertPlainText(';')
 
-        self.textEdit.setHtml(_translate("Form", returnText))
-        
-    def parser(self, parse=''):
-        if parse == 'json':
-            import json, os, sys
-            if os.path.exists(os.path.join(os.getcwd(), 'config')):                
-                with open('config', 'r') as file:
-                    stylesheet = json.load(file)
-                return stylesheet
-            else:
-                sys.stdout.write('can\'t load config file\n')
+            if (_e == 'Slash'):
+                    self.insertPlainText('/')
 
-    def getTextId(self, j):
-        j = j.strip()
-        if len(j.split()) != 1:
-            returnText = dict()
-            for i in j.split():
-                    if i in self.identifiers:
-                        returnText[i] = self.identifiers[i]
-                    else :
-                        returnText[i] = self.identifiers['common']
-        else:
-            if j in self.identifiers:
-                returnText[i] = self.identifiers[i]
-            else:
-                returnText[i] = self.identifiers['common']
-        return returnText
+            if (_e == 'Comma'):
+                    self.insertPlainText(',')
 
-    def retranslateUi(self, Form):
-        _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("Form", "Form"))
-        self.textEdit.setStyleSheet('background:transparent')
+            if (_e == 'Period'):
+                    self.insertPlainText('.')
+                        
+            if ('Shift' in _e):
+                if (_e.split('Shift+')[1] in self.alphanum):
+                    self.insertPlainText(_e.split('Shift+')[1].upper())
+                if (_e.split('Shift+')[1] == 'Exclam'):
+                    self.insertPlainText('!')
+                if (_e.split('Shift+')[1] == 'At'):
+                    self.insertPlainText('@')
+                if (_e.split('Shift+')[1] == 'Dollar'):
+                    self.insertPlainText('$')    
+                if (_e.split('Shift+')[1] == 'NumberSign'):
+                    self.insertPlainText('#')
+                if (_e.split('Shift+')[1] == 'Percent'):
+                    self.insertPlainText('%')
+                if (_e.split('Shift+')[1] == 'AsciiCircum'):
+                    self.insertPlainText('^')
+                if (_e.split('Shift+')[1] == 'Ampersand'):
+                    self.insertPlainText('&')
+                if (_e.split('Shift+')[1] == 'Asterisk'):
+                    self.insertPlainText('*')
+                if (_e.split('Shift+')[1] == 'ParenLeft'):
+                    self.insertPlainText('(')
+                if (_e.split('Shift+')[1] == 'ParenRight'):
+                    self.insertPlainText(')')
+                if (_e.split('Shift+')[1] == 'Underscore'):
+                    self.insertPlainText('_')
+                if (_e.split('Shift+')[1] == 'Plus'):
+                    self.insertPlainText('+')
+                if (_e.split('Shift+')[1] == 'Minus'):
+                    self.insertPlainText('-')
+                if (_e.split('Shift+')[1] == 'Equal'):
+                    self.insertPlainText('=')
+                if (_e.split('Shift+')[1] == 'Bar'):
+                    self.insertPlainText('|')
+                if (_e.split('Shift+')[1] == 'BraceRight'):
+                    self.insertPlainText('}')
+                if (_e.split('Shift+')[1] == 'BraceLeft'):
+                    self.insertPlainText('{')
+                if (_e.split('Shift+')[1] == 'QuoteDbl'):
+                    self.insertPlainText('"')
+                if (_e.split('Shift+')[1] == 'Colon'):
+                    self.insertPlainText(':')
+                if (_e.split('Shift+')[1] == 'Question'):
+                    self.insertPlainText('?')
+                if (_e.split('Shift+')[1] == 'Greater'):
+                    self.insertPlainText('>')
+                if (_e.split('Shift+')[1] == 'Less'):
+                    self.insertPlainText('<')
+                if (_e.split('Shift+')[1] == 'AsciiTilde'):
+                    self.insertPlainText('~')
+                
+            if ('Space' in _e):
+                self.insertPlainText(' ')
 
-    def setupFn(self):
-        self.attachtracing()
+            if ('Backspace' in _e):
+                import bs4
+                if not self.cur.position() > self.start: return
+                q = self.toHtml()
+                _pos = self.cur.position()
+                try:
+                    i = ''
+                    for _ in q.split('</span>')[:-2]:
+                        i+=_
+                    i+='</span>'
+                    i+=q.split('</span>')[-2][:-1]
+                    i+='</span>'
+                    i+=q.split('</span>')[-1]
+                    self.setHtml(i)
+                    self.cur.setPosition(_pos)
+                    self.setTextCursor(self.cur)
+                    
+                    
+                except Exception as e:
+                    i = ''
+                    for _ in q.split('</p>')[:-2]:
+                        i+=_
+                    i+='</p>'
+                    i+=q.split('</p>')[-2][:-1]
+                    i+='</p>'
+                    i+=q.split('</p>')[-1]
+                    self.setHtml(i)
+                    
+                '''
+                self.setPlainText(self.toPlainText()[:-1])
+                self.cur.setPosition(i-1)
+                self.setTextCursor(self.cur)
+                '''
+            if ('Left' in _e):
+                self.cur.setPosition(self.cur.position() - 1)
+                self.setTextCursor(self.cur)
 
-    def attachtracing(self):
-        self.workingThread = QtCore.QThread()
-        self.worker = Worker(self._pynput_)
-        self.worker.moveToThread(self.workingThread)
-        self.worker.signals.error.connect(self.errorInChangeText)
-        self.worker.signals.text.connect(self.textChanged)
-        self.workingThread.started.connect(self.worker.run)
-        self.workingThread.finished.connect(self.workingThread.deleteLater)
-        self.workingThread.start()
+            if ('Right' in _e):
+                self.cur.setPosition(self.cur.position() + 1)
+                self.setTextCursor(self.cur)
 
-    def textChanged(self, key):
-        if self.grabEditor:
+            if ('Return' in _e):
+                self.grabbedEditor = True
+                if self.commandCheck(self.toPlainText().split('❯ ')[-1]) : return
+                self.commandrunnerThread = QtCore.QThread()
+                self.commandrunner = commandRunner(self.toPlainText().split('❯ ')[-1])
+                self.commandrunner.signals.error.connect(self.commandRunnerError)
+                self.commandrunner.signals._break.connect(self.commandrunner._break_)
+                self.commandrunner.signals.text.connect(self.commandRunnerText)
+                self.commandrunner.signals.finished.connect(self.commandRunnerFinished)
+                self.commandrunner.moveToThread(self.commandrunnerThread)
+                self.commandrunnerThread.started.connect(self.commandrunner.run)
+                self.commandrunner.signals.finished.connect(self.commandrunner.deleteLater)
+                self.commandrunner.signals.finished.connect(self.commandrunnerThread.quit)
+                self.commandrunnerThread.finished.connect(self.commandrunnerThread.deleteLater)
+                self.commandrunnerThread.start()
+                self.insertPlainText('\n')
             return
-        self.integrateCn(key)
+                
+        except Exception as exp:
+            print(exp)
+            return
 
-    def errorInChangeText(self):
-        print('error occured')
+    def commandCheck(self, command):
+        if command == 'ls':
+            #old
+            '''self.insertPlainText('\n')
+            for e in os.listdir():
+                cur = self.textCursor()
+                cur.setPosition(len(self.toPlainText()))
+                self.setTextCursor(cur)
+                self.insertPlainText(str(e) + '\t')
+            self.commandRunnerFinished()
+            return True'''
+            #new
+            cur = self.textCursor()
+            self.cur.insertText('\n', self.forechar)
+            dirchar = QtGui.QTextCharFormat()
+            dirchar.setForeground(QtGui.QColor('#9898fb'))
+            filchar = QtGui.QTextCharFormat()
+            filchar.setForeground(QtGui.QColor('#1E786E'))
+            dirs, files = [],[]
+            
+            for e in os.listdir():
+                if os.path.isdir(os.path.join(os.getcwd(), e)):
+                    dirs.append(e)
+                if os.path.isfile(os.path.join(os.getcwd(), e)):
+                    files.append(e)
 
-    def _pynput_(self):
-        try:
-            import pynput.keyboard as keyboard
+            for e in dirs:
+                self.cur.insertText(e+'\t', dirchar)
+            for e in files:
+                self.cur.insertText(e+'\t', filchar)
 
-        except ImportError:
-            sys.stderr.write('pynput module import failed')
-            sys.stderr.write('\ttry installing pynput')
-    
-        with keyboard.Listener(on_press=self.worker.on_press) as listener:
-            if self.grabEditor:
-                return
-            try:
-                listener.join()
-            except MyException as e:
-                print('{0} was pressed'.format(e.args[0]))
+            self.setTextCursor(cur)
+            self.commandRunnerFinished()
+            return True
 
-    
-if __name__ == "__main__":
-    import sys, os, json
-    app = QtWidgets.QApplication(sys.argv)
-    Form = QtWidgets.QWidget()
-    a = ''
-    if os.path.exists(os.path.join(os.getcwd(), 'config')):
-        with open('config', 'r') as file:
-            existsJsonFile = True
-            a = json.load(file)
-        try:
-            bgcolor = a['editor']['bgcolor']
-        except:
-            bgcolor = 'rgb(0, 0, 0)'
-        try:
-            forecolor = a['editor']['text-color']
-        except:
-            forecolor = 'white'
-    Form.setStyleSheet('background-color:{0};color:{1}'.format(bgcolor, forecolor))
-    ui = Ui_Form()
-    ui.setupUi(Form)
-    Form.show()
-    sys.exit(app.exec_())
+        if 'imageShow' == command.strip().split()[0]:
+            cur = self.textCursor()
+            print(command.strip().split()[1])
+            self.html = self.toHtml()
+            self.clear()
+            self.insertHtml('<img src='+ command.strip().split()[1] + ' width='+str(self.width())+' height='+str(self.height())+'>')
+            self.waitforobject = True
+            return True
 
+        if 'clear' == command.strip():
+            self.clear()
+            cur = self.textCursor()
+            cur.insertText(self.prompt, self.forechar)
+            self.setTextCursor(cur)
+            self.cleared = True
+            self.grabbedEditor = False
+            self.ensureCursorVisible()
+            return True
+        return False
+
+    def restorehtml(self):
+        self.clear()
+        self.insertHtml(self.html)
+        self.commandRunnerFinished()
+        self.grabbedEdtor = False
+
+    def commandRunnerError(self, *args):
+        print(*args)
+
+    def commandRunnerText(self, e):
+        cur = self.textCursor()
+        cur.setPosition(len(self.toPlainText()))
+        print(u'{0}'.format(e.decode('ascii')))
+        self.cur.insertText(u'{0}'.format(e.decode('ascii')) + '\n', self.forechar)
+        self.setTextCursor(cur)
+        self.ensureCursorVisible()
+        
+        
+    def commandRunnerFinished(self, *args):
+        cur = self.textCursor()
+        self.cur.insertText('\n\n'+self.prompt, self.forechar)
+        self.setTextCursor(self.cur)
+        self.grabbedEditor = False
+        self.ensureCursorVisible()
+        
+    def pushEditorOutput(self, e):
+        pass
+
+fore   = '#b7ccda'
+app    = QtWidgets.QApplication([])
+widget = QtWidgets.QWidget()
+layout = QtWidgets.QVBoxLayout(widget)
+editor = plain(widget, fore)
+bar = editor.verticalScrollBar()
+BAR = editor.horizontalScrollBar()
+BAR.hide()
+bar.hide()
+#editor.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+#editor.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+layout.setContentsMargins(20, 20, 20, 20)
+layout.addWidget(editor)
+widget.setStyleSheet("""
+    font-family:'Cascadia Code PL';
+    font-weight:200;
+    font-size: 13px;
+    color: {fore};
+    border: None;
+    background-color: #0c1013;""".format_map({'fore':fore}))
+widget.resize(QtCore.QSize(700, 400))
+
+highlight = syntax.PythonHighlighter(editor.document())
+widget.show()
+
+a = os.getcwd()+'\n'+'❯ '
+editor.insertPlainText(a)
+
+app.exec()
