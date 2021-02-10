@@ -22,6 +22,9 @@ def format(color, style=''):
 
     return _format
 
+#define after cd underline
+cdafterline = QTextCharFormat()
+cdafterline.setFontUnderline(True)
 
 # Syntax styles that can be shared by all languages
 STYLES = {
@@ -37,6 +40,7 @@ STYLES = {
     'numbers': format([100, 150, 190]),
     'prompt': format([0, 255, 93]),
     'bash': format([150, 85, 140], 'italic'),
+    'cd': cdafterline,
 }
 
 
@@ -58,7 +62,7 @@ class PythonHighlighter(QSyntaxHighlighter):
     keywords = [
         'and', 'break', 'exit', 'quit', 'exec', 'import', 'or',
         'echo', 'not', 'True', 'False', 'None', 'pass','for', 'global',
-        'from', 'is', 'else', 'continue',
+        'from', 'is', 'else', 'continue', 'if', 'in', 'or', 
         ]
 
     # Python operators
@@ -79,10 +83,6 @@ class PythonHighlighter(QSyntaxHighlighter):
         '\{', '\}', '\(', '\)', '\[', '\]',
     ]
 
-    bash_Command = [
-        'shell', 'ls', 'run', 'clear',
-    ]
-
     def __init__(self, document):
         QSyntaxHighlighter.__init__(self, document)
 
@@ -101,17 +101,12 @@ class PythonHighlighter(QSyntaxHighlighter):
                   for o in PythonHighlighter.operators]
         rules += [(r'%s' % b, 0, STYLES['brace'])
                   for b in PythonHighlighter.braces]
-        rules += [(r'%s' % b, 0, STYLES['bash'])
-                  for b in PythonHighlighter.bash_Command]
 
         # All other rules
-        for i in PythonHighlighter.bash_Command:
-            a = r'\b'+i+r'\b\s*(\w+)'
-            (a, 1, STYLES['defclass']),
-            
+    
         rules += [
             # 'self'
-            (r'\bself\b', 0, STYLES['self']),
+            #(r'\bself\b', 0, STYLES['self']),
 
             (r'❯', 0, STYLES['prompt']),
 
@@ -122,6 +117,9 @@ class PythonHighlighter(QSyntaxHighlighter):
 
             # 'run' followed by an identifier
             (r'\brun\b\s*(\w+)', 1, STYLES['defclass']),
+
+            #cd followed by anything
+            (r'\bcd\b\s*(\w+)', 1, STYLES['cd']),
 
             # 'class' followed by an identifier
             (r'\bclass\b\s*(\w+)', 1, STYLES['defclass']),

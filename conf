@@ -1,0 +1,18 @@
+{
+	"editor_Ss": "font-family:'Montserrat';\n        font-weight:200;\n        font-size: 13px;\n        color: #b7ccda;\n        border: None;\n        background-color: #0c1013;",
+	"margin-Left": "20",
+	"margin-Right": "20",
+	"margin-Bottom": "20",
+	"margin-Top": "20",
+	"keyword": "",
+	"error": "#f88",
+	"dircolor":"#9898fb",
+	"filecolor":"#1E786E",
+	"window_startup_mode": "CUSTOM_FRAMELESS_WINDOW",
+	"window_closebt_styleSheet": "border-radius:4px;\n background-color: rgb(243, 31, 81);",
+	"window_maxbt_styleSheet": "border-radius:4px;\n background-color: rgb(255, 86, 2);",
+	"window_minbt_styleSheet": "border-radius:4px;\n background-color: rgb(85, 170, 127)",
+	"window_shadebt_styleSheet": "border-radius:4px;\n background-color: rgb(86, 216, 255)",
+	"parent_Ss": "font-family:'Montserrat';\n        font-weight:200;\n        font-size: 13px;\n        color: #b7ccda;\n        border: None;\n        background-color: #0c1013;",
+	"window_size":"700x400"
+}
