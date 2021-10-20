@@ -90,24 +90,3 @@ class screen(screenImpt.screenImpt):
 
                         except IndexError:
                                 break
-                                
-                '''fmt = QtGui.QTextCharFormat()
-                fmt.setBackground(QtCore.Qt.blue)
-                fmt.setForeground(QtCore.Qt.gray)
-
-                rect = QtCore.QRect(0, 40, self.width() , self._fontmet.boundingRect('j').height())
-                
-                pen = QtGui.QPen()
-                pen.setColor(QtCore.Qt.blue)
-                qp.setPen(pen)
-                
-                qp.fillRect(rect, QtCore.Qt.black)
-                #qp.setBrush(i[0].foreground())
-                qp.drawText(rect, 1, 'hello')  '''                                                              
-                                        
-                               
-
-app = QtWidgets.QApplication([])
-screen = screen()
-screen.show()
-app.exec()
