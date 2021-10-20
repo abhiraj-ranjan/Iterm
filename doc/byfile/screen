@@ -1,0 +1,2 @@
+handles all the painting things that needed to be done in the terminal GUI
+like buffer handling.

@@ -1,0 +1,27 @@
+handles the parsing of Ansi and xterm commands
+
+must pass all the char of the string (iter) to the TempParser.feed method
+EG: 
+	# init parser 
+	parser = TempParser()
+	to_parse_string = ''
+	for i in to_parse_string:
+		_ = parser.feed(i) 
+		if isinstance(_, bool):
+			continue # command can be part of existing / starting of a command
+		elif isinstance(_, dict):
+			do_something(_)
+
+
+parser.feed(string: str) -> Bool | dict
+		
+		params: string[1] (char)
+		return: Bool if command is part of existing or starting of new command.
+			Dict if command is parsed successfully and means something to interpret in editor like cursor control
+				- has 3 keys
+					'func'  : str  = name of the command that is evoked
+					'params': list = list of the params that is supplied to the terminal in the func
+					'help'  : str  = a small desc of what the func needs to be done using params (if any)
+
+list of all the possible commands supported can be viewed by parser source code at https://www.github.com/abhirajranjan/zerm/zerm/parser.py
+

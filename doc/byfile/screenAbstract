@@ -1,0 +1,2 @@
+Abstract model of terminal, it implements various common features like
+cursor setup, config management, **connection to pty** .

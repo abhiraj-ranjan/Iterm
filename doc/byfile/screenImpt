@@ -1,0 +1,2 @@
+implements the parsing of output data from pty and sending keyboard/mouse strokes 
+to pty while managing the parser.
