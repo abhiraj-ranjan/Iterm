@@ -1,16 +1,29 @@
-# ZTerm or Zerm
-ZTerm or Zerm, a highly customisable (not true) shell application written with python and qt bindings (pyqt5). 
+# ZTerm / Zerm
+console written in python3 wih qt bindings.
+
+## Installation & Run
+1. clone this repo
+
+    * ssh
+    ```bash
+    git clone git@github.com:abhirajranjan/zerm
+    ```
+    * or http
+    ```bash
+    git clone https://www.github.com/abhirajranjan/zerm.git
+    ```
+2. switch to the zerm src directory and run [main.py](https://www.github.com/abhirajranjan/zerm/zerm/main.py)
+
+    ```bash
+    cd zerm && python3 zerm/main.py
+    ```
 
 ## Requirements
- >=python 3.7 (only f string additional support required from 3.7)
- >=pyqt5 5.11
+ * [python](https://www.python.org/) >= 3.7
+ * [PyQt5](https://pypi.org/project/PyQt5/) ( [PyQt6](https://pypi.org/project/PyQt6/) / 
+ [PySide6](https://pypi.org/project/PySide6/) /
+ [PySide2](https://pypi.org/project/PySide2/) is also supported )
 
-## Getting Started
- run "_terminal.py"
 
-## Configuration
-every file in zerm folder is a custom widget (currently only terminal)
-and have a conf file
-
-conf file is a json formatted type file which by default contains every possiable configuration term
-every widget module is provided with a readme containing conf details 
+## Reference
+* [KDE Konsole](https://konsole.kde.org/)
