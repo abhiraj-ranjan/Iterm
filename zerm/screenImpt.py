@@ -146,7 +146,7 @@ class textCursor:
                                 self.currentNode._grouped_txt[-1][2] += QtGui.QFontMetrics(self.font).boundingRect(text).width()
                         else:
                                 #print('changed fmt')
-                                self.currentNode._grouped_txt.append([self.currentTextFormat, ' '*(self.col-len(_)-1) + text, QtGui.QFontMetrics(self.font).boundingRect(text).width()])
+                                self.currentNode._grouped_txt.append([self.currentTextFormat, text, QtGui.QFontMetrics(self.font).boundingRect(text).width()])
 
                         for i in range(self.col-len(_)-1):
                                 _.append([prev_fmt, ' '])

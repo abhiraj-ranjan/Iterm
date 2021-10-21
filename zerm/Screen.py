@@ -42,50 +42,45 @@ class screen(screenImpt.screenImpt):
 
                 
         def paintEvent(self, e):
-                print('redrawing')
-                win_size_px = self.size()
                 width_count = 0
                 qp          = QtGui.QPainter(self)
-                pen = qp.pen()
                 qp.setFont(QtGui.QFont('monospace'))
                 
-                rect        = QtCore.QRect(0, 0, self.width(), self._fontmet.boundingRect('j').height())
+                boundingrect = qp.boundingRect(self.rect(), 0x0001, 'yjA')
+                rect        = QtCore.QRect(0, 0, self.width(), boundingrect.height())
                 
-                #qp.setClipRect(rect)
-                #print(self.textCursor.currentNode.i, '\n', self.textCursor.currentNode._grouped_txt)
 
-                for i in range(self.size().height() // self._fontmet.height()):
+
+                qp.setClipRect(rect)
+                
+                for i in range(self.height() // boundingrect.height()):
                         i += self.slider.value()
                         try:
                                 node = self.textCursor.list[i]
                                 _ = ''
-                                fontmet = self._fontmet.boundingRect('Â')
                                 
                                 for i in node._grouped_txt:
-                                        #pen = QtGui.QPen(i[0].foreground())
-                                        pen.setColor(i[0].foreground())
                                         qp.setPen(i[0].foreground())
-                                        #print('fore', i[0].foreground().name(), 'back', i[0].background().name())
-                                        #print(qp.pen().color().name(), i[0].background().name(), i[1])
-                                        qp.fillRect(rect, i[0].background())
-                                        qp.drawText(rect.x(), rect.y() + self._fontmet.height(), i[1])
+                                        charboundingrect = qp.boundingRect(rect, 0x0001, i[1])
 
-                                        qp.drawText(rect.x(), rect.y()+self._fontmet.height(), str(width_count))
-                                        #width_count += self._fontmet.boundingRect(i[1]).width()
-                                        width_count += self._fontmet.horizontalAdvance(i[1])
+                                        qp.fillRect(QtCore.QRect(rect.x(), rect.y(), charboundingrect.width(), charboundingrect.height()), i[0].background())
+                                        qp.drawText(QtCore.QRect(rect.x(), rect.y(), charboundingrect.width(), charboundingrect.height()), 0x0001, i[1])
+
+                                        #qp.drawText(rect.x(), rect.y()+self._fontmet.height(), str('|'))
+                                        width_count += charboundingrect.width()
                                         _ = i[1]
                                         
                                         rect.setX(width_count)
-                                        rect.setWidth(max(self.rect().width()-width_count, 0))
-                                        #rect.setHeight(self._fontmet.boundingRect('j').height())
-                                        #qp.setClipRect(rect)
-                                
+                                        rect.setWidth(max(self.width()-width_count, 0))
+                                        qp.setClipRect(rect)
+
+                                        print(f'{charboundingrect.height() == boundingrect.height()}')
                 
                                 width_count = 0
                                 rect.setY(rect.y() + rect.height())
                                 rect.setX(0)
-                                rect.setHeight(self._fontmet.boundingRect('j').height())
-                                rect.setWidth(self.rect().width())
+                                rect.setHeight(boundingrect.height())
+                                rect.setWidth(self.width())
                                 qp.setClipRect(rect)
 
                         except IndexError:
