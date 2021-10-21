@@ -1,9 +1,9 @@
 #control the text manuplation and editings
 
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtGui
 import screenAbstract
-import os
 import collections
+
 
 class textFormat:
         def __init__(self, fmt=None):
@@ -34,16 +34,20 @@ class textFormat:
         def setFont(self, font: QtGui.QFont) -> bool:
                 self._font = QtGui.QFont(font)
 
-        def setForeground(self, color: QtGui.QColor) -> bool:
+        def setForeground(self, color: QtGui.QColor) -> None:
                 #print('set Fore to ', color.name())
                 self._foreground = QtGui.QColor(color)
 
-        def setBackground(self, color: QtGui.QColor) -> bool:
+        def setBackground(self, color: QtGui.QColor) -> None:
                 #print('set Back to ', color.name())
                 self._background = QtGui.QColor(color)
 
-        def setUnderline(self, value: bool) -> bool:
+        def setUnderline(self, value: bool) -> None:
                 self._underline = value
+
+        def setFontStrikeOut(self, value: bool) -> None:
+                # TODO: make font strikeout work in textFormat
+                ...
 
         def __eq__(self, texFmt):
                 if (self._foreground.name() == texFmt._foreground.name()) and \
@@ -100,7 +104,6 @@ class textCursor:
 
                 self.currentNode = self.list[-1]
 
-
         def lineCount(self) -> int:
                 return len(self.list)
 
@@ -127,25 +130,21 @@ class textCursor:
                         self.list[-1].text[0][0] = textFormat(self.list[-2].text[-1][0])
                         self.list[-1].update()
                         
-                self.currentNode = self.list[self.currentNode.i+1]
-                
+                self.currentNode = self.list[self.currentNode.i+1]                
 
         def insertPixmap(self):
                 self.list.append(Node(len(self.list), self.font))
 
-        def insertText(self, text, textChar='def'):
+        def insertText(self, text):
                 _ = self.currentNode.text
                 if len(_) < self.col:
                         prev_fmt = textFormat(_[-1][0])
 
                         if self.currentNode._grouped_txt[-1][0] == self.currentTextFormat:
-                                #print(self.currentTextFormat.foreground().name())
-                                #print(text, 'prev_fmt == currentFmt, ', prev_fmt.foreground().name(), self.currentTextFormat.foreground().name())
                                 self.currentNode._grouped_txt[-1][1] += ' '*(self.col-len(_)-1)
                                 self.currentNode._grouped_txt[-1][1] += text
                                 self.currentNode._grouped_txt[-1][2] += QtGui.QFontMetrics(self.font).boundingRect(text).width()
                         else:
-                                #print('changed fmt')
                                 self.currentNode._grouped_txt.append([self.currentTextFormat, text, QtGui.QFontMetrics(self.font).boundingRect(text).width()])
 
                         for i in range(self.col-len(_)-1):
@@ -158,7 +157,8 @@ class textCursor:
 
                 self.col+=1
                 self.parent.update()
-        
+
+
 class screenImpt(screenAbstract.ScreenAbstract):
         def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -170,11 +170,9 @@ class screenImpt(screenAbstract.ScreenAbstract):
                 fmt.setBackground(self.colorDict.color8bit['back'][self.graphicMode])
                 fmt.setFont(self._font)
                 
-                #self.textCursor = textCursor(self, collections.deque(), self.defaultFmt, self._font)
                 self.textCursor = textCursor(self, collections.deque(), fmt, self._font)
 
         def parseCmd(self, cmd):
-                #print(cmd, end='')
                 for i in cmd:
                         _ = self.parser.feed(i)
                         if ord(i) == 7:
@@ -256,9 +254,6 @@ class screenImpt(screenAbstract.ScreenAbstract):
         def resetColors(self, i):
                 self.graphicMode = 0
                 self.textCursor.currentTextFormat = textFormat(self.textCursor.defaultTextFormat)
-                #self.textCursor.currentTextFormat.setForeground(QtGui.QColor(self.textCursor.defaultTextFormat.foreground().name()))
-                #self.textCursor.currentTextFormat.setBackground(QtGui.QColor(self.textCursor.defaultTextFormat.background().name()))
-                #self.textCursor.currentTextFormat.setUnderline(self.textCursor.defaultTextFormat.underline())
                 return True
 
         def setBold(self, i):
@@ -321,14 +316,7 @@ class screenImpt(screenAbstract.ScreenAbstract):
                         color = self.colorDict.color8bit['White'][self.graphicMode]
 
                 if color:
-                        #print(self.textCursor.currentNode._grouped_txt[-1][0].foreground().name(),
-                        #      self.textCursor.currentNode._grouped_txt[-1][0].background().name(),
-                        #      self.textCursor.currentNode._grouped_txt[-1][1])
                         self.textCursor.currentTextFormat.setForeground(QtGui.QColor(color))
-                        #print('\ncolor added', self.textCursor.currentTextFormat.foreground().name())
-                        #print(self.textCursor.currentNode._grouped_txt[-1][0].foreground().name(),
-                        #      self.textCursor.currentNode._grouped_txt[-1][0].background().name(),
-                        #      self.textCursor.currentNode._grouped_txt[-1][1])
                 return True
 
         def parseMouseMovement(self, params, func):

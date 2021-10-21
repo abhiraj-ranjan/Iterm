@@ -1,11 +1,12 @@
 #control the abstraction and backend of screen
 
 from PyQt5 import QtWidgets, QtCore, QtGui
-import fcntl, locale, pty, struct, sys, termios
+import fcntl, locale, pty, struct, termios
 import subprocess
 import os
 import parser
 import colorDict
+
 
 class ScreenAbstract(QtWidgets.QWidget):
         aboutToClose = QtCore.pyqtSignal()
