@@ -121,8 +121,7 @@ class textCursor:
                 self.CharHeight = self.boundingRect('j').height()
 
                 self.font = QtGui.QFont(font)
-                self.currentTextFormat.setFont(font)
-
+                
         def insertNewLine(self):
                 if self.currentNode.i+1 == len(self.list):
                         self.insertPixmap()
@@ -171,7 +170,7 @@ class screenImpt(screenAbstract.ScreenAbstract):
                 fmt.setFont(self._font)
                 
                 self.textCursor = textCursor(self, collections.deque(), fmt, self._font)
-
+                
         def parseCmd(self, cmd):
                 for i in cmd:
                         _ = self.parser.feed(i)

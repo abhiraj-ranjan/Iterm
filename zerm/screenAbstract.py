@@ -22,7 +22,6 @@ class ScreenAbstract(QtWidgets.QWidget):
 
                 # Launch DEFAULT_TTY_CMD in the terminal
                 self.spawn(self._def_term)
-                
                 self.parser = parser.TempParser()
 
         def config(self):
@@ -62,15 +61,11 @@ class ScreenAbstract(QtWidgets.QWidget):
                 self._def_term = ['bash']
 
         def termsize(self):
-                win_size_px = self.size()
-                char_width = self._fontmet.boundingRect(self.ref_ch).width()
+                #char_width = self.fontboundingrect.width() if self.fontboundingrect else self._fontmet.boundingRect(self.ref_ch).width()
+                char_width = self._fontmet.averageCharWidth()
 
-                # Subtract the space a scrollbar will take from the usable width
-                usable_width = (win_size_px.width() - QtWidgets.QApplication.instance().style().pixelMetric(QtWidgets.QStyle.PM_ScrollBarExtent))
-
-                # Use integer division (rounding down in this case) to find dimensions
-                cols = usable_width // char_width
-                rows = win_size_px.height() // self._fontmet.height()
+                cols = self.width() // char_width
+                rows = self.height() // (self.fontboundingrect.height() if self.fontboundingrect else self._fontmet.boundingRect(self.ref_ch).height())
 
                 return (cols, rows)
 

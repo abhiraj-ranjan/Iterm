@@ -11,8 +11,8 @@ class screen(screenImpt.screenImpt):
                 self.slider = QtWidgets.QScrollBar(self)
                 self.lay = QtWidgets.QVBoxLayout(self)
                 self.lay.addWidget(self.slider)
+                self.fontboundingrect = QtCore.QRect()  # to be updated on paintEvent
                 self.slider.valueChanged.connect(self.onScrollValueChanged)
-                self.fontboundingrect = QtCore.QRect()  # to be updated on paintEvent 
 
         def onScrollValueChanged(self, value):
                 self.update()
@@ -25,23 +25,22 @@ class screen(screenImpt.screenImpt):
                 win_size_px = self.size()
                 self._fontmet = QtGui.QFontMetrics(self.textCursor.font)
 
-                # Use integer division (rounding down in this case) to find dimensions
-                rows = win_size_px.height() // self._fontmet.height()
+                # Use height in font bounding (more accurate) if available as it might be not available on 1st run as it update on paint event 
+                rows = win_size_px.height() // (self.fontboundingrect.height() if self.fontboundingrect else  self._fontmet.height())
 
                 _ = 1 if self.slider.value() == self.slider.maximum() else 0
-                self.slider.setRange(0, 0 if rows >= self.textCursor.lineCount() else self.textCursor.lineCount()-rows)
+                self.slider.setRange(0, 0 if rows >= self.textCursor.lineCount() else self.textCursor.lineCount() - rows)
                 if _:
                         self.slider.setValue(self.slider.maximum())
                 super().update()
 
-                
         def paintEvent(self, e: QtGui.QPaintEvent):
                 width_count = 0
                 qp          = QtGui.QPainter(self)
-                qp.setFont(QtGui.QFont('monospace'))
+                qp.setFont(QtGui.QFont(self.textCursor.font))
                 
                 if not self.fontboundingrect:
-                        self.fontboundingrect = qp.boundingRect(self.rect(), 0x0001, 'yjA')
+                        self.fontboundingrect = qp.boundingRect(self.rect(), 0x0001, 'j')
                 
                 boundingrect = self.fontboundingrect
                 rect        = QtCore.QRect(0, 0, self.width(), boundingrect.height())
