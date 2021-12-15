@@ -1,12 +1,18 @@
 .PHONY: check_programs run clean build
 
-all : check_programs run
+all : check_programs
 
-backend = "linux"
+python = $(shell PATH=$(PATH) which python3)
+python ?= $(shell PATH=$(PATH) which python)
+
+os = $(shell ../scripts/get_backend.sh -p $(python) -g os)
+backend = $(shell ../scripts/get_backend.sh -p $(python) -g backend)
 
 
 check_programs:
-	@echo $(shell PATH=$(PATH) which python3)
+	@echo "checking system"
+	@echo                found python : $(python)
+	@echo buiding with backend for os : $(os)
 
 
 venv/bin/activate: ../requirements.txt
