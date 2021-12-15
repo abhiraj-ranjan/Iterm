@@ -1,7 +1,7 @@
 #control the text manuplation and editings
 
 from PyQt5 import QtCore, QtGui
-import backend.screenAbstract as screenAbstract
+import backend.linux.screenAbstract as screenAbstract
 import collections
 
 
