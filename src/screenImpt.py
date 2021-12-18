@@ -1,7 +1,7 @@
 #control the text manuplation and editings
 
 from PyQt5 import QtCore, QtGui
-import screenAbstract
+import backend.linux.linux_backend as linux_backend
 import collections
 
 
@@ -158,7 +158,7 @@ class textCursor:
                 self.parent.update()
 
 
-class screenImpt(screenAbstract.ScreenAbstract):
+class screenImpt(linux_backend.ScreenAbstract):
         def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.setAttribute(QtCore.Qt.WA_InputMethodEnabled, True)
