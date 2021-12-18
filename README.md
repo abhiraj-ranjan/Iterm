@@ -1,6 +1,9 @@
 # ZTerm / Zerm
 console written in python3 wih qt bindings.
 
+## Under development so bugs are expected
+if you encounter any bug, look in issue section and if there were not any opened/closed issues regarding yours kindly open one. 
+
 ## Installation & Run
 1. clone this repo
 
@@ -12,10 +15,10 @@ console written in python3 wih qt bindings.
     ```bash
     git clone https://www.github.com/abhirajranjan/zerm.git
     ```
-2. switch to the zerm src directory and run [main.py](https://www.github.com/abhirajranjan/zerm/zerm/main.py)
+2. switch to the src directory and run [main.py](https://www.github.com/abhirajranjan/zerm/zerm/main.py)
 
     ```bash
-    cd zerm && python3 zerm/main.py
+    cd src && python3 zerm/main.py
     ```
 
 ## Requirements
