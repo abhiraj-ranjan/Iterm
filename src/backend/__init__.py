@@ -1,2 +1,2 @@
-from linux import *
-from windows import *
+from . import linux
+from . import windows

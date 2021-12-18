@@ -4,7 +4,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 import fcntl, locale, pty, struct, termios
 import subprocess
 import os
-import parser
+from parser import parser
 import colorDict
 
 
@@ -77,7 +77,7 @@ class ScreenAbstract(QtWidgets.QWidget):
                 cols, rows = self.termsize()
                 # Announce the change to the PTY
                 fcntl.ioctl(self.pty_m, termios.TIOCSWINSZ,
-                    struct.pack("HHHH", rows, cols, 0, 0))
+                        struct.pack("HHHH", rows, cols, 0, 0))
 
         def spawn(self, argv):
                 """Launch a child process in the terminal"""
@@ -85,9 +85,9 @@ class ScreenAbstract(QtWidgets.QWidget):
                 # TODO: Need to reap zombie children
                 # XXX: Kill existing children if spawn is called a second time?
                 if self.pty_m:
-                    self.pty_m.close()
+                        self.pty_m.close()
                 if self.notifier:
-                    self.notifier.disconnect()
+                        self.notifier.disconnect()
 
                 # Create a new PTY with both ends open
                 self.pty_m, pty_s = pty.openpty()
@@ -103,9 +103,9 @@ class ScreenAbstract(QtWidgets.QWidget):
                 # Launch the subprocess
                 # FIXME: Keep a reference so we can reap zombie processes
                 subprocess.Popen(argv,  # nosec
-                    stdin=pty_s, stdout=pty_s, stderr=pty_s,
-                    env=child_env,
-                    preexec_fn=os.setsid)
+                        stdin=pty_s, stdout=pty_s, stderr=pty_s,
+                        env=child_env,
+                        preexec_fn=os.setsid)
 
                 # Close the child side of the PTY so that we can detect when to exit
                 os.close(pty_s)
@@ -114,7 +114,7 @@ class ScreenAbstract(QtWidgets.QWidget):
                 # (Because I didn't feel like looking into whether QProcess can be
                 #  integrated with PTYs as a subprocess.Popen alternative)
                 self.notifier = QtCore.QSocketNotifier(
-                    self.pty_m, QtCore.QSocketNotifier.Read, self)
+                        self.pty_m, QtCore.QSocketNotifier.Read, self)
                 self.notifier.activated.connect(self.parseData)
 
         def parseData(self, pty_m):
