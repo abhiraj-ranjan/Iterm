@@ -9,8 +9,8 @@ done
 
 if [ "$get" = "os" ]
 then
-    echo `$python ../scripts/get_backend.py os`;
+    echo `$python scripts/get_backend.py os`;
 else
-    echo `$python ../scripts/get_backend.py backend`;
+    echo `$python scripts/get_backend.py backend`;
 fi
 
