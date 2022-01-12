@@ -28,5 +28,5 @@ jobs:
         
       - name: build application
         run: |
-          cd build,
-          make build
+          pip install PyQt5,
+          python3 src/main.py
